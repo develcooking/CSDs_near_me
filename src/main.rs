@@ -13,7 +13,7 @@ use std::io::Write;
 
 
 fn main() {
-    let url = "https://www.csd-termine.de/2024";
+    let url = "https://www.csd-termine.de/tabelle";
     let user_city_name = get_city_name_from_user();
     let user_city_coordinates = match get_coordinates(&user_city_name) {
         Some(coords) => coords,

@@ -1,5 +1,5 @@
 [package]
-name = "Wo_ist_der_nächste_CSD_in_meiner_Nähe"
+name = "CSDs_near_me"
 version = "0.1.0"
 edition = "2021"
 
