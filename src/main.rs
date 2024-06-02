@@ -10,8 +10,6 @@ use geocoding::{Forward, Opencage};
 use std::io;
 use std::io::Write;
 
-
-
 fn main() {
     let url = "https://www.csd-termine.de/tabelle";
     let user_city_name = get_city_name_from_user();
@@ -40,7 +38,7 @@ fn extract_locations_and_dates_from_url(url: &str, user_city_name: &str, user_ci
     
     let response = get(url);
     let html_content = match response {
-        Ok(res) => res.text().unwrap_or_default(),
+        Ok(res) => res.text().unwrap_or_else(|_| String::new()),
         Err(err) => {
             eprintln!("Error retrieving URL: {}", err);
             return;
@@ -54,12 +52,9 @@ fn extract_locations_and_dates_from_url(url: &str, user_city_name: &str, user_ci
     let current_date = chrono::Utc::now().naive_utc().date();
 
     for row in rows {
-        let a_tag = row.find(Name("a")).next();
-        let date_tag = row.find(Class("date")).next();
-        if let (Some(a_tag), Some(date_tag)) = (a_tag, date_tag) {
+        if let (Some(a_tag), Some(date_tag)) = (row.find(Name("a")).next(), row.find(Class("date")).next()) {
             if let Some(location_match) = a_tag.text().split("CSD ").nth(1) {
-                let city_name = location_match.trim().split_whitespace().next().unwrap_or("");
-                if let Ok(date) = NaiveDate::parse_from_str(date_tag.text().trim(), "%d.%m.%y") {
+                if let Some((city_name, date)) = parse_location_and_date(location_match.trim(), date_tag.text().trim()) {
                     if date >= current_date {
                         cities.push((city_name.to_string(), date));
                     }
@@ -95,6 +90,12 @@ fn extract_locations_and_dates_from_url(url: &str, user_city_name: &str, user_ci
     let end_time = Instant::now();  // Endzeit erfassen
     let execution_time = end_time.duration_since(start_time).as_secs_f64();  // Gesamtausführungszeit berechnen
     println!("Gesamtausführungszeit: {:.2} Sekunden", execution_time);
+}
+
+fn parse_location_and_date(location: &str, date: &str) -> Option<(String, NaiveDate)> {
+    let city_name = location.split_whitespace().next()?.to_string();
+    let date = NaiveDate::parse_from_str(date, "%d.%m.%y").ok()?;
+    Some((city_name, date))
 }
 
 fn get_coordinates(city_name: &str) -> Option<geo::Point<f64>> {
