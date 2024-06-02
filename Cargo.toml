@@ -1,0 +1,11 @@
+[package]
+name = "Wo_ist_der_nächste_CSD_in_meiner_Nähe"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+select = "0.5"
+chrono = { version = "0.4", features = ["serde"] }
+geocoding = "0.4.0"
+geo = "0.24.1"
