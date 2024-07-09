@@ -53,8 +53,14 @@ fn extract_locations_and_dates_from_url(url: &str, user_city_name: &str, user_ci
 
     for row in rows {
         if let (Some(a_tag), Some(date_tag)) = (row.find(Name("a")).next(), row.find(Class("date")).next()) {
-            if let Some(location_match) = a_tag.text().split("CSD ").nth(1) {
-                if let Some((city_name, date)) = parse_location_and_date(location_match.trim(), date_tag.text().trim()) {
+            let location_text = a_tag.text();
+            let date_text = date_tag.text();
+
+            if let Some(location_match) = location_text.split_once("CSD ") {
+                let location_part = location_match.1.trim();
+                let date_part = date_text.trim();
+
+                if let Some((city_name, date)) = parse_location_and_date(location_part, date_part) {
                     if date >= current_date {
                         cities.push((city_name.to_string(), date));
                     }
@@ -75,7 +81,7 @@ fn extract_locations_and_dates_from_url(url: &str, user_city_name: &str, user_ci
     }
 
     let mut sorted_cities: Vec<_> = city_distances.iter().collect();
-    sorted_cities.sort_by(|a, b| b.1 .0.partial_cmp(&a.1 .0).unwrap());
+    sorted_cities.sort_by(|a, b| a.1 .0.partial_cmp(&b.1 .0).unwrap());
 
     for (city_name, (distance, date)) in sorted_cities {
         println!(
@@ -93,9 +99,15 @@ fn extract_locations_and_dates_from_url(url: &str, user_city_name: &str, user_ci
 }
 
 fn parse_location_and_date(location: &str, date: &str) -> Option<(String, NaiveDate)> {
-    let city_name = location.split_whitespace().next()?.to_string();
-    let date = NaiveDate::parse_from_str(date, "%d.%m.%y").ok()?;
-    Some((city_name, date))
+    let parsed_date = NaiveDate::parse_from_str(date, "%d.%m.%y").ok()?;
+
+    let city_name = if location.ends_with(" 2024") {
+        location.trim_end_matches(" 2024").to_string()
+    } else {
+        location.to_string()
+    };
+
+    Some((city_name, parsed_date))
 }
 
 fn get_coordinates(city_name: &str) -> Option<geo::Point<f64>> {
