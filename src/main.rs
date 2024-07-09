@@ -14,7 +14,7 @@ use rayon::prelude::*;
 
 fn main() {
     let url = "https://www.csd-termine.de/tabelle";
-    let api_key = Arc::from("a8b455b3e8944081b20f0db5755d2df1");
+    let api_key = Arc::from("YOUR_GEOCODING_API_KEY_HERE");
     let user_city_name = get_city_name_from_user();
     let user_city_coordinates = match get_coordinates(Arc::clone(&api_key), Arc::from(user_city_name.clone())) {
         Some(coords) => coords,
