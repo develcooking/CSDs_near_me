@@ -9,3 +9,5 @@ select = "0.5"
 chrono = { version = "0.4", features = ["serde"] }
 geocoding = "0.4.0"
 geo = "0.24.1"
+rayon = "1.5"
+cached = "0.28"

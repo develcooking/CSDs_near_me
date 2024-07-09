@@ -4,16 +4,18 @@ use select::predicate::{Class, Name};
 use chrono::NaiveDate;
 use geo::algorithm::haversine_distance::HaversineDistance;
 use geo::point;
-use std::collections::HashMap;
+use cached::proc_macro::cached;
+use std::sync::Arc;
 use std::time::Instant;
 use geocoding::{Forward, Opencage};
 use std::io;
 use std::io::Write;
+use rayon::prelude::*;
 
 fn main() {
     let url = "https://www.csd-termine.de/tabelle";
     let user_city_name = get_city_name_from_user();
-    let user_city_coordinates = match get_coordinates(&user_city_name) {
+    let user_city_coordinates = match get_coordinates(Arc::from(user_city_name.clone())) {
         Some(coords) => coords,
         None => {
             eprintln!("Failed to retrieve coordinates for {}", user_city_name);
@@ -69,21 +71,19 @@ fn extract_locations_and_dates_from_url(url: &str, user_city_name: &str, user_ci
         }
     }
 
-    let mut city_distances = HashMap::new();
-    let total_cities = cities.len();
+    let mut city_distances = cities
+        .par_iter()
+        .filter_map(|(city_name, date)| {
+            get_coordinates(Arc::from(city_name.clone())).map(|city_coordinates| {
+                let distance = calculate_distance(&city_coordinates, &user_city_coordinates);
+                (city_name.clone(), (distance, *date))
+            })
+        })
+        .collect::<Vec<_>>();
 
-    for (index, (city_name, date)) in cities.iter().enumerate() {
-        if let Some(city_coordinates) = get_coordinates(city_name) {
-            let distance = calculate_distance(&city_coordinates, &user_city_coordinates);
-            city_distances.insert(city_name.clone(), (distance, *date));
-            println!("Progress: {}/{}", index + 1, total_cities);
-        }
-    }
+    city_distances.sort_by(|a, b| a.1 .0.partial_cmp(&b.1 .0).unwrap());
 
-    let mut sorted_cities: Vec<_> = city_distances.iter().collect();
-    sorted_cities.sort_by(|a, b| a.1 .0.partial_cmp(&b.1 .0).unwrap());
-
-    for (city_name, (distance, date)) in sorted_cities {
+    for (city_name, (distance, date)) in city_distances {
         println!(
             "Am {}, in der Stadt {} ist {:.2} km von {} entfernt.",
             date.format("%d.%m.%y"),
@@ -110,7 +110,8 @@ fn parse_location_and_date(location: &str, date: &str) -> Option<(String, NaiveD
     Some((city_name, parsed_date))
 }
 
-fn get_coordinates(city_name: &str) -> Option<geo::Point<f64>> {
+#[cached(time = 1800)]
+fn get_coordinates(city_name: Arc<str>) -> Option<geo::Point<f64>> {
     let api_key = "a8b455b3e8944081b20f0db5755d2df1";
     let geocoder = Opencage::new(api_key.to_string());
     match geocoder.forward(&city_name) {
