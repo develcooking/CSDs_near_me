@@ -14,15 +14,16 @@ use rayon::prelude::*;
 
 fn main() {
     let url = "https://www.csd-termine.de/tabelle";
+    let api_key = Arc::from("a8b455b3e8944081b20f0db5755d2df1");
     let user_city_name = get_city_name_from_user();
-    let user_city_coordinates = match get_coordinates(Arc::from(user_city_name.clone())) {
+    let user_city_coordinates = match get_coordinates(Arc::clone(&api_key), Arc::from(user_city_name.clone())) {
         Some(coords) => coords,
         None => {
             eprintln!("Failed to retrieve coordinates for {}", user_city_name);
             return;
         }
     };
-    extract_locations_and_dates_from_url(url, &user_city_name, user_city_coordinates);
+    extract_locations_and_dates_from_url(Arc::clone(&api_key), url, &user_city_name, user_city_coordinates);
 }
 
 fn get_city_name_from_user() -> String {
@@ -35,7 +36,7 @@ fn get_city_name_from_user() -> String {
     input.trim().to_string()
 }
 
-fn extract_locations_and_dates_from_url(url: &str, user_city_name: &str, user_city_coordinates: geo::Point<f64>) {
+fn extract_locations_and_dates_from_url(api_key: Arc<str>, url: &str, user_city_name: &str, user_city_coordinates: geo::Point<f64>) {
     let start_time = Instant::now();  // Startzeit erfassen
     
     let response = get(url);
@@ -74,7 +75,7 @@ fn extract_locations_and_dates_from_url(url: &str, user_city_name: &str, user_ci
     let mut city_distances = cities
         .par_iter()
         .filter_map(|(city_name, date)| {
-            get_coordinates(Arc::from(city_name.clone())).map(|city_coordinates| {
+            get_coordinates(Arc::clone(&api_key), Arc::from(city_name.clone())).map(|city_coordinates| {
                 let distance = calculate_distance(&city_coordinates, &user_city_coordinates);
                 (city_name.clone(), (distance, *date))
             })
@@ -111,8 +112,7 @@ fn parse_location_and_date(location: &str, date: &str) -> Option<(String, NaiveD
 }
 
 #[cached(time = 1800)]
-fn get_coordinates(city_name: Arc<str>) -> Option<geo::Point<f64>> {
-    let api_key = "a8b455b3e8944081b20f0db5755d2df1";
+fn get_coordinates(api_key: Arc<str>, city_name: Arc<str>) -> Option<geo::Point<f64>> {
     let geocoder = Opencage::new(api_key.to_string());
     match geocoder.forward(&city_name) {
         Ok(geocoded) => geocoded.first().map(|location| {
